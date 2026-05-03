@@ -1,0 +1,12 @@
+numpy
+opencv-python
+PyWavelets
+scipy
+scikit-image
+pillow
+click
+python-dotenv
+orjson
+tqdm
+joblib
+pytest
