@@ -24,7 +24,7 @@ WATERMARK_METHODS = {
     "tree_ring": "Tree-Ring",
     "stable_sig": "Stable-Signature",
     "stegastamp": "Stega-Stamp",
-    "arnold_hess": "Arnold-Hess",
+    "arnold_hess": "Proposed DWT-Hess",
 }
 
 PERFORMANCE_METRICS = {
@@ -58,18 +58,15 @@ def _load_arnold_hess_ground_truth():
     """Load 64x64 binary watermark as WAVES bool message."""
     wm_path = os.environ.get("ARNOLD_HESS_WM_PATH")
     if not wm_path or not os.path.exists(wm_path):
-        warnings.warn(
-            "ARNOLD_HESS_WM_PATH is not set or does not exist. "
-            "Using an all-zero dummy ground truth for arnold_hess. "
-            "Set ARNOLD_HESS_WM_PATH before running decode/evaluation."
+        raise RuntimeError(
+            "ARNOLD_HESS_WM_PATH must be set to the original binary watermark before "
+            "running arnold_hess decode/evaluation. Refusing to use a dummy zero watermark."
         )
-        return np.zeros((int(os.environ.get("ARNOLD_HESS_WM_SIZE", "64")) ** 2,), dtype=bool)
     try:
         from watermarks.arnold_hess_adapter import ground_truth_message
         return ground_truth_message(wm_path).astype(bool)
     except Exception as exc:
-        warnings.warn(f"Could not load ARNOLD_HESS_WM_PATH={wm_path}: {exc}. Using zeros.")
-        return np.zeros((int(os.environ.get("ARNOLD_HESS_WM_SIZE", "64")) ** 2,), dtype=bool)
+        raise RuntimeError(f"Could not load ARNOLD_HESS_WM_PATH={wm_path}: {exc}") from exc
 
 
 GROUND_TRUTH_MESSAGES = {
