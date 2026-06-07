@@ -107,7 +107,9 @@ Q4_GIVENS_PAIRS = (
     (1, 2),
 )
 
-FAST_CANDIDATE_SCORING = True
+FAST_CANDIDATE_SCORING = bool(int(os.environ.get("ARNOLD_HESS_FAST_CANDIDATE_SCORING", "1")))
+ULTRA_FAST_CANDIDATE_SCORING = bool(int(os.environ.get("ARNOLD_HESS_ULTRA_FAST_CANDIDATE_SCORING", "0")))
+_REPEAT_LIMIT_RAW = os.environ.get("ARNOLD_HESS_REPEAT_LIMIT", "full")
 DEBUG = bool(int(os.environ.get("ARNOLD_HESS_DEBUG", "0")))
 
 
@@ -441,6 +443,10 @@ def make_structured_repetition_schedule(blocks, payload_len: int):
 
     total_blocks = len(blocks)
     repeat_factor = total_blocks // payload_len
+
+    repeat_limit_raw = str(_REPEAT_LIMIT_RAW).strip().lower()
+    if repeat_limit_raw not in {"", "none", "full", "all", "0"}:
+        repeat_factor = min(repeat_factor, max(1, int(repeat_limit_raw)))
 
     if repeat_factor <= 0:
         raise ValueError(
@@ -913,14 +919,17 @@ def _candidate_attack_score(block0: np.ndarray, block_cand: np.ndarray, mode: in
     mse = float(np.mean((block0 - block_cand) ** 2))
     base = block_cand.astype(np.float64)
 
-    stress_tests = [
-        ("exact", base),
-        ("rounded", np.rint(base)),
-        ("positive_drift", base + 0.25),
-        ("negative_drift", base - 0.25),
-    ]
+    if ULTRA_FAST_CANDIDATE_SCORING:
+        stress_tests = [("exact", base)]
+    else:
+        stress_tests = [
+            ("exact", base),
+            ("rounded", np.rint(base)),
+            ("positive_drift", base + 0.25),
+            ("negative_drift", base - 0.25),
+        ]
 
-    if not FAST_CANDIDATE_SCORING:
+    if (not ULTRA_FAST_CANDIDATE_SCORING) and (not FAST_CANDIDATE_SCORING):
         stress_tests.extend([
             ("scale_up", 1.01 * base),
             ("scale_down", 0.99 * base),
@@ -1068,6 +1077,8 @@ def get_current_params():
         "BSS_WEIGHT": float(BSS_WEIGHT),
         "MSE_WEIGHT": float(MSE_WEIGHT),
         "MAX_Q_CAND_MSE": float(MAX_Q_CAND_MSE),
+        "ARNOLD_HESS_REPEAT_LIMIT": str(_REPEAT_LIMIT_RAW),
+        "ARNOLD_HESS_ULTRA_FAST_CANDIDATE_SCORING": bool(ULTRA_FAST_CANDIDATE_SCORING),
         "MAX_H_CAND_MSE": float(MAX_H_CAND_MSE),
         "Q4_GIVENS_THETA_MAX": float(Q4_GIVENS_THETA_MAX),
         "Q4_GIVENS_MSE_WEIGHT": float(Q4_GIVENS_MSE_WEIGHT),

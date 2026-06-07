@@ -181,3 +181,126 @@ python scripts/show_arnold_hess_results.py \
 ```
 
 For proper TPR@0.1%FPR, use enough clean and attacked images. Very small smoke-test runs are only for checking code execution.
+
+## One-command Arnold-Hess WAVES-style benchmark
+
+This corrected version adds a self-contained runner:
+
+```bash
+./run_arnold_hess_waves.sh \
+  --data-source coco-val2017 \
+  --dataset mscoco \
+  --limit 1000 \
+  --attack-preset distortion-single \
+  --strengths 0.2,0.4,0.6,0.8,1.0
+```
+
+What it does automatically:
+
+1. creates `data/`, `results/`, `cache/`, and `raw/` folders;
+2. downloads COCO `val2017.zip` by HTTPS when `--data-source coco-val2017` is used;
+3. converts host images to 512x512 RGB PNG files;
+4. creates a fixed 64x64 binary watermark if `--watermark` is not provided;
+5. embeds the Arnold-Hess method into WAVES folders:
+   - `data/main/<dataset>/real/`
+   - `data/main/<dataset>/arnold_hess/`
+   - `data/side_info/<dataset>/arnold_hess/`
+6. generates WAVES-style attacked folders:
+   - `data/attacked/<dataset>/<attack>-<strength>-arnold_hess/`
+7. decodes Arnold-Hess watermark messages;
+8. computes lightweight image metrics: PSNR, SSIM, NMI;
+9. exports comparison-ready tables and plots:
+   - `results/<dataset>/arnold_hess_waves_distortion_summary.csv`
+   - `results/<dataset>/arnold_hess_waves_distortion_summary.md`
+   - `results/<dataset>/arnold_hess_waves_psnr_vs_tpr.png`
+   - `results/<dataset>/arnold_hess_waves_nc_by_strength.png`
+   - `results/<dataset>/arnold_hess_waves_bit_accuracy_by_strength.png`
+   - `results/<dataset>/arnold_hess_waves_tpr_by_strength.png`
+
+### Recommended quick run
+
+```bash
+./run_arnold_hess_waves.sh \
+  --data-source coco-val2017 \
+  --dataset mscoco \
+  --limit 100 \
+  --attack-preset lite \
+  --strengths 0.2,0.6,1.0
+```
+
+### Recommended paper-scale distortion run
+
+```bash
+./run_arnold_hess_waves.sh \
+  --data-source coco-val2017 \
+  --dataset mscoco \
+  --limit 5000 \
+  --subset-limit 1000 \
+  --watermark-size 64 \
+  --attack-preset distortion-single \
+  --strengths 0.2,0.4,0.6,0.8,1.0
+```
+
+The exported CSV uses WAVES-style columns such as:
+
+```text
+tpr_at_0_1pct_fpr, tpr_at_1pct_fpr, auc, psnr_mean, ssim_mean,
+nmi_mean, ber_mean, bit_accuracy_mean, nc_mean, robustness_class
+```
+
+### Reproducing the original all-capacity Arnold-Hess setting
+
+The runner defaults to a practical fast setting:
+
+```text
+--repeat-limit 1
+--candidate-scoring ultrafast
+```
+
+For the slower original all-capacity schedule, use:
+
+```bash
+./run_arnold_hess_waves.sh \
+  --data-source coco-val2017 \
+  --dataset mscoco \
+  --limit 5000 \
+  --watermark-size 64 \
+  --repeat-limit full \
+  --candidate-scoring fast \
+  --attack-preset distortion-single
+```
+
+This is much slower because the original implementation uses many 4x4 block-level Hessenberg decompositions. The selected setting is stored in the CSV `notes` field and in the side-info metadata, so reported results remain auditable.
+
+### Smoke/debug run without downloading COCO
+
+```bash
+./run_arnold_hess_waves.sh \
+  --data-source synthetic \
+  --dataset custom \
+  --limit 2 \
+  --subset-limit 2 \
+  --watermark-size 8 \
+  --attacks distortion_single_jpeg \
+  --strengths 0.2
+```
+
+This is only for checking that the pipeline works; do not use this smoke result in a paper.
+
+### What is and is not included
+
+Included:
+
+- WAVES-style folder layout;
+- COCO val2017 auto-download;
+- Arnold-Hess embedding/extraction;
+- WAVES-style distortion attacks using the official strength ranges;
+- TPR@0.1%FPR, AUC, PSNR, SSIM, NMI, BER, bit accuracy, and NC summaries.
+
+Not included by this lightweight command:
+
+- diffusion regeneration attacks;
+- adversarial attacks;
+- GPU-heavy full quality metrics such as LPIPS/FID/CLIP/aesthetic scores.
+
+Use the exported `arnold_hess_waves_distortion_summary.csv` for direct comparison tables. For strict wording, describe the run as a **WAVES-style distortion benchmark** unless you also add the full regeneration and adversarial WAVES attack groups.

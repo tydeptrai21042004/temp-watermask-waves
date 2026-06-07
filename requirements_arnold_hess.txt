@@ -10,3 +10,6 @@ orjson
 tqdm
 joblib
 pytest
+scikit-learn
+matplotlib
+pandas
