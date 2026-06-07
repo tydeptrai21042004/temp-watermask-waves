@@ -55,13 +55,32 @@ EVALUATION_SETUPS = {
 
 
 def _load_arnold_hess_ground_truth():
-    """Load 64x64 binary watermark as WAVES bool message."""
+    """Load 64x64 binary watermark as WAVES bool message.
+
+    The one-command Arnold-Hess runner creates and exports ARNOLD_HESS_WM_PATH
+    before evaluation. For general CLI imports/help, avoid crashing when the
+    watermark has not been created yet; use a zero placeholder with a warning.
+    Any real Arnold-Hess benchmark must still set ARNOLD_HESS_WM_PATH.
+    """
     wm_path = os.environ.get("ARNOLD_HESS_WM_PATH")
+    if not wm_path:
+        # Common defaults created by scripts/run_arnold_hess_waves_benchmark.py.
+        candidates = [
+            os.path.join(os.getcwd(), "data", "watermark", "arnold_hess_wm64.png"),
+            os.path.join(os.getcwd(), "data", "watermark", "wm.png"),
+        ]
+        wm_path = next((candidate for candidate in candidates if os.path.exists(candidate)), None)
+
     if not wm_path or not os.path.exists(wm_path):
-        raise RuntimeError(
-            "ARNOLD_HESS_WM_PATH must be set to the original binary watermark before "
-            "running arnold_hess decode/evaluation. Refusing to use a dummy zero watermark."
+        warnings.warn(
+            "ARNOLD_HESS_WM_PATH is not set and no default watermark was found. "
+            "Using a zero placeholder only so non-Arnold-Hess CLI imports can continue. "
+            "Run scripts/run_arnold_hess_waves_benchmark.py or set ARNOLD_HESS_WM_PATH "
+            "before reporting Arnold-Hess results."
         )
+        wm_size = int(os.environ.get("ARNOLD_HESS_WM_SIZE", "64"))
+        return np.zeros((wm_size, wm_size), dtype=bool)
+
     try:
         from watermarks.arnold_hess_adapter import ground_truth_message
         return ground_truth_message(wm_path).astype(bool)
